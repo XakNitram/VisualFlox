@@ -1,0 +1,3 @@
+[submodule "ext/Glad"]
+	path = ext/Glad
+	url = https://github.com/XakNitram/Glad.git
