@@ -3,7 +3,7 @@ project(VisualFlox VERSION 0.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(${CMAKE_PROJECT_NAME})
+add_executable(${PROJECT_NAME})
 set_target_properties(
     ${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 20
