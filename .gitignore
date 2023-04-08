@@ -1,2 +1,4 @@
-.cmake*/
-
+CppCaptures/
+.cmake-build-*/
+blender/
+*.ngfx-proj
