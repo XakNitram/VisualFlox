@@ -244,7 +244,7 @@ namespace core {
     void Window::clear() const {
         if (!created()) { return; }
         // Requires OpenGL context.
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 #pragma clang diagnostic pop
 

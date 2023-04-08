@@ -2,6 +2,10 @@
 #include "Core/Window/Window.hpp"
 #include "Boid/Flock.hpp"
 #include "Boid/Algorithm/DirectLoopAlgorithm.hpp"
+#include "Rendering/FlockRenderer.hpp"
+
+
+using namespace lwvl::debug;
 
 
 // Notes:
@@ -19,18 +23,35 @@ static inline double delta(time_point<Clock> start) {
     ).count());
 }
 
+static const char *debug_source(lwvl::debug::Source source);
+static const char *debug_type(lwvl::debug::Type type);
 
-class Application : public core::Controller {
-    core::Window *window;
-    Flock flock {128};
+
+class Application final : public core::Controller {
+    core::Window window;
+    Flock flock {100};
 public:
-    explicit Application(core::Window *win_ptr) : window(win_ptr) {
+    explicit Application() {
         core::Hints window_hints {800, 450};
-        core::WindowStatus result = window->create("VisualFlox", this, window_hints);
+        core::WindowStatus result = window.create("VisualFlox", this, window_hints);
         if (result != core::WindowStatus::Success) {
             std::cerr << "Window creation failed." << std::endl;
             throw std::exception();
         }
+    }
+
+    static void handle_gl_error(
+        Source source, Type type, Severity, unsigned int, int length, const char *message, const void *
+    ) {
+        if (type == Type::Other) {
+            return;
+        }
+
+        std::cout
+            << "[OpenGL]["
+            << debug_source(source) << "][" << debug_type(type) << "] "
+            << std::string_view {message, static_cast<Unsigned>(length)}
+            << std::endl;
     }
 
     bool handle_key_event(core::KeyboardEvent event, core::Action action) override {
@@ -39,7 +60,7 @@ public:
 
         if (action != Release) { return false; }
         if (event.key == GLFW_KEY_ESCAPE) {
-            window->should_close(true);
+            window.should_close(true);
             return true;
         }
 
@@ -47,26 +68,58 @@ public:
     }
 
     int run() {
-        if (!window->created()) {
+        if (!window.created()) {
             return 1;
         }
 
-        DirectLoopAlgorithm direct_loop_algorithm {Vector {0.0f, 0.0f, 0.0f}};
+        GLEventListener listener(this, handle_gl_error);
+
+        const float world_bound = 500.0f;
+        const int width = 800;
+        const int height = 450;
+        const float aspect = static_cast<float>(width) / static_cast<float>(height);
+        //const Vector bounds {
+        //    aspect >= 1.0f ? world_bound * aspect : world_bound,
+        //    aspect < 1.0f ? world_bound * aspect : world_bound,
+        //    world_bound
+        //};
+
+        const Vector bounds {
+            world_bound * aspect,
+            world_bound,
+            world_bound
+        };
+
+        DirectLoopAlgorithm direct_loop_algorithm {bounds};
         Algorithm *algorithm {&direct_loop_algorithm};
 
-        auto frame_start = high_resolution_clock::now();
+        Projection projection {
+            1.0f / bounds.x, 0.0f, 0.0f, 0.0f,
+            0.0f, 1.0f / bounds.y, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f / bounds.z, 0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f
+        };
 
-        while (!window->should_close()) {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
+        FlockRenderer flock_renderer {flock.count(), projection};
+
+        auto frame_start = high_resolution_clock::now();
+        while (!window.should_close()) {
             const auto dt = static_cast<float>(delta(frame_start));
             frame_start = high_resolution_clock::now();
-            window->update();
+            window.update();
             flock.update(algorithm, dt);
-            window->clear();
-            window->swap_buffers();
+            flock_renderer.update(flock);
+            window.clear();
+            flock_renderer.draw();
+            window.swap_buffers();
 
             if (delta(frame_start) <= 0.008) {
                 std::this_thread::sleep_for(milliseconds(1));
             }
+
+            std::cout.flush();
         }
 
         return 0;
@@ -75,9 +128,37 @@ public:
 
 
 int run() {
-    core::Window window;
-    Application application(&window);
+    Application application;
     return application.run();
+}
+
+static const char *debug_source(lwvl::debug::Source source) {
+    switch (source) {
+        using
+        enum lwvl::debug::Source;
+        case API: return "API";
+        case Application: return "Application";
+        case ShaderCompiler: return "Shader";
+        case ThirdParty: return "ThirdParty";
+        case WindowSystem: return "WindowSystem";
+        default: return "Other";
+    }
+}
+
+static const char *debug_type(lwvl::debug::Type type) {
+    switch (type) {
+        using
+        enum lwvl::debug::Type;
+        case DeprecatedBehavior: return "Deprecation";
+        case Error: return "Error";
+        case Marker: return "Marker";
+        case Performance: return "Performance";
+        case Portability: return "Portability";
+        case PopGroup: return "PopGroup";
+        case PushGroup: return "PushGroup";
+        case UndefinedBehavior: return "UB";
+        default: return "Other";
+    }
 }
 
 

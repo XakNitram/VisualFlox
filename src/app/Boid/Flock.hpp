@@ -15,5 +15,6 @@ public:
 
     void update(Algorithm *, float dt);
 
-    Boid const *boids();
+    [[nodiscard]] const Boid *boids() const;
+    [[nodiscard]] std::size_t count() const;
 };

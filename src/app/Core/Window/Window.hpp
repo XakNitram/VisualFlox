@@ -1,7 +1,6 @@
 #pragma once
 
 #include "pch.hpp"
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 // We might be able to use the MVC pattern here.

@@ -9,6 +9,6 @@ export_resources(
     TARGET resources
     DIRECTORY Shaders
     DEPENDS
-        default.vert
-        default.frag
+        boid.vertex
+        boid.fragment
 )

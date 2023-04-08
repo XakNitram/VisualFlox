@@ -29,6 +29,10 @@ void Flock::update(Algorithm *algorithm, float dt) {
     m_flock.flip();
 }
 
-Boid const *Flock::boids() {
+const Boid *Flock::boids() const {
     return m_flock.read();
+}
+
+std::size_t Flock::count() const {
+    return m_count;
 }
