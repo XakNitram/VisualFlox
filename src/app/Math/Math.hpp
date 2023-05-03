@@ -7,9 +7,10 @@ using Double = glm::vec<2, float, glm::defaultp>;
 using Triple = glm::vec<3, float, glm::defaultp>;
 using Vector = glm::vec<3, float, glm::defaultp>;
 using Quadruple = glm::vec<4, float, glm::defaultp>;
-using Projection = glm::mat<4, 4, float, glm::defaultp>;
 using Transform = glm::mat<4, 4, float, glm::defaultp>;
+using Quaternion = glm::qua<float, glm::defaultp>;
 constexpr float Epsilon = std::numeric_limits<float>::epsilon();
+constexpr float Pi = 3.141592653589793f;
 
 
 float fastInverseSqrt(float d);
@@ -32,5 +33,11 @@ std::ostream &operator<<(std::ostream &os, const glm::vec<L, T, Q> &rhs) {
         os << rhs[i];
     }
     os.write(")", 1);
+    return os;
+}
+
+template<typename T, glm::qualifier Q = glm::defaultp>
+std::ostream &operator<<(std::ostream &os, const glm::qua<T, Q> &rhs) {
+    os << '(' << rhs.x << ", " << rhs.y << ", " << rhs.z << ", " << rhs.w << ')';
     return os;
 }

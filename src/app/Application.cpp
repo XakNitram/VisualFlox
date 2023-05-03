@@ -3,16 +3,21 @@
 #include "Boid/Flock.hpp"
 #include "Boid/Algorithm/DirectLoopAlgorithm.hpp"
 #include "Rendering/FlockRenderer.hpp"
+#include "Rendering/BoundRenderer.hpp"
+#include "Math/Camera.hpp"
 
 
 using namespace lwvl::debug;
 
+
+// https://on-demand.gputechconf.com/siggraph/2016/presentation/sig1611-thomas-true-high-dynamic-range-rendering-displays.pdf
 
 // Notes:
 // . How do models integrate with this application style?
 // . Is this class style of application going to be annoying?
 // . A model is a data source. A controller manages a data source. A view displays a data source.
 // ? An array of "Layer"s that handle different aspects of the program.
+// . Animations have distinct types they can be sorted into. Translation, Rotation, Scale, Interpolation?, Color
 
 using namespace std::chrono;
 
@@ -29,10 +34,16 @@ static const char *debug_type(lwvl::debug::Type type);
 
 class Application final : public core::Controller {
     core::Window window;
-    Flock flock {100};
+    Flock flock {250};
+    bool s_pressed = false;
+    bool w_pressed = false;
+    bool a_pressed = false;
+    bool d_pressed = false;
+    bool paused = false;
+    const Vector cursor_position {0.0f, 0.0f, 0.0f};
 public:
     explicit Application() {
-        core::Hints window_hints {800, 450};
+        core::Hints window_hints {1920, 1080};
         core::WindowStatus result = window.create("VisualFlox", this, window_hints);
         if (result != core::WindowStatus::Success) {
             std::cerr << "Window creation failed." << std::endl;
@@ -58,12 +69,62 @@ public:
         using
         enum core::Action;
 
+        if (event.key == GLFW_KEY_W) {
+            if (action == Press) {
+                w_pressed = true;
+            } else if (action == Release) {
+                w_pressed = false;
+            }
+        }
+
+        if (event.key == GLFW_KEY_S) {
+            if (action == Press) {
+                s_pressed = true;
+            } else if (action == Release) {
+                s_pressed = false;
+            }
+        }
+
+        if (event.key == GLFW_KEY_D) {
+            if (action == Press) {
+                d_pressed = true;
+            } else if (action == Release) {
+                d_pressed = false;
+            }
+        }
+
+        if (event.key == GLFW_KEY_A) {
+            if (action == Press) {
+                a_pressed = true;
+            } else if (action == Release) {
+                a_pressed = false;
+            }
+        }
+
         if (action != Release) { return false; }
         if (event.key == GLFW_KEY_ESCAPE) {
             window.should_close(true);
             return true;
         }
 
+        if (event.key == GLFW_KEY_SPACE) {
+            paused ^= true;
+        }
+
+        return false;
+    }
+
+    bool handle_mouse_motion_event(core::MouseMotionEvent event) override {
+        //const Vector cursor_previous_position {cursor_position}; {
+        //    const core::Size window_size {window.size()};
+        //    const auto x_pos = static_cast<float>(event.pos.x) / static_cast<float>(window_size.x);
+        //    const auto y_pos = static_cast<float>(event.pos.y) / static_cast<float>(window_size.y);
+        //    cursor_position = Vector {
+        //        (x_pos * 2.0f - 1.0f) * bounds.x,
+        //        (y_pos * 2.0f - 1.0f) * bounds.y,
+        //        0.0f  // Aim sensitivity as z-depth, then apply perspective?
+        //    };
+        //}
         return false;
     }
 
@@ -74,44 +135,68 @@ public:
 
         GLEventListener listener(this, handle_gl_error);
 
-        const float world_bound = 500.0f;
-        const int width = 800;
-        const int height = 450;
+        const float world_bound = 50.0f;
+        const int width = 1920;
+        const int height = 1080;
         const float aspect = static_cast<float>(width) / static_cast<float>(height);
-        //const Vector bounds {
-        //    aspect >= 1.0f ? world_bound * aspect : world_bound,
-        //    aspect < 1.0f ? world_bound * aspect : world_bound,
-        //    world_bound
-        //};
+        const Vector bounds {world_bound};
+        const Cube bounding_cube {bounds};
 
-        const Vector bounds {
-            world_bound * aspect,
-            world_bound,
-            world_bound
-        };
+        const float far_plane = bounds.z * 11.0f;
+        const float near_plane = 1.0f; // distance to the near clipping plane
+        const float fov = 91.0f;
+        Transform projection = glm::perspective(
+            glm::radians(fov), aspect,
+            near_plane, far_plane + near_plane
+        );
+
+        // What do we need for a camera?
+        // * Position
+        // * Direction pointer
+        // * Has to remain upright <-- sticking point
+
+        Transform view = glm::translate(
+            Transform(1.0f), Vector(0.0f, 0.0f, -bounds.z * 2.0f)
+        );
 
         DirectLoopAlgorithm direct_loop_algorithm {bounds};
         Algorithm *algorithm {&direct_loop_algorithm};
 
-        Projection projection {
-            1.0f / bounds.x, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f / bounds.y, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f / bounds.z, 0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f
-        };
-
-        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LESS);
         FlockRenderer flock_renderer {flock.count(), projection};
+        BoundRenderer bound_renderer {bounding_cube, projection};
 
         auto frame_start = high_resolution_clock::now();
         while (!window.should_close()) {
             const auto dt = static_cast<float>(delta(frame_start));
+            const float normal_delta = dt * 60.0f;
             frame_start = high_resolution_clock::now();
             window.update();
-            flock.update(algorithm, dt);
-            flock_renderer.update(flock);
+
+            if (!paused) {
+                flock.update(algorithm, dt);
+                flock_renderer.update(flock);
+            }
+
+            auto z_direction = static_cast<float>(w_pressed - s_pressed);
+            auto x_direction = static_cast<float>(a_pressed - d_pressed);
+
+            //view = glm::translate(view, Vector(0.0f, 0.0f, z_direction * normal_delta));
+            view = glm::rotate(view, glm::radians(x_direction * normal_delta * 0.75f), Vector(0.0f, 1.0f, 0.0f));
+            view = glm::rotate(view, glm::radians(z_direction * normal_delta * 0.75f), Vector(1.0f, 0.0f, 0.0f));
+
+            flock_renderer.set_view(view);
+            bound_renderer.set_view(view);
             window.clear();
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // Enable wireframe rendering
+            flock_renderer.set_color(Triple(0.0f, 0.0f, 0.0f));
+            flock_renderer.draw();
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore the default rendering mode
+            glDisable(GL_DEPTH_TEST);
+            bound_renderer.draw();
+            glEnable(GL_DEPTH_TEST);
+            flock_renderer.set_color(Boid::Color);
             flock_renderer.draw();
             window.swap_buffers();
 
@@ -163,7 +248,6 @@ static const char *debug_type(lwvl::debug::Type type) {
 
 
 #ifdef WIN32
-
 int wmain()
 #else // WIN32
 int main()

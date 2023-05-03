@@ -11,5 +11,5 @@ class Algorithm {
 public:
     virtual ~Algorithm() = default;
 
-    virtual void update(DoubleBuffer<Boid> &boids, float delta) = 0;
+    virtual void update(DoubleBuffer<Boid> &boids, std::vector<Quaternion> &rotations, float delta) = 0;
 };

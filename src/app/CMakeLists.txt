@@ -7,6 +7,7 @@ target_sources(
     Boid/Algorithm/DirectLoopAlgorithm.hpp
     Boid/Algorithm/DirectLoopAlgorithm.cpp
     Boid/Boid.hpp
+    Boid/Boid.cpp
     Boid/Flock.hpp
     Boid/Flock.cpp
 
@@ -29,6 +30,8 @@ target_sources(
     # **** Rendering ****
     Rendering/FlockRenderer.hpp
     Rendering/FlockRenderer.cpp
+    Rendering/BoundRenderer.hpp
+    Rendering/BoundRenderer.cpp
 
     # **** Structures ****
     Structures/DoubleBuffer.hpp

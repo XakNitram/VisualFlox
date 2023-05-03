@@ -11,4 +11,6 @@ export_resources(
     DEPENDS
         boid.vertex
         boid.fragment
+        default.vertex
+        default.fragment
 )

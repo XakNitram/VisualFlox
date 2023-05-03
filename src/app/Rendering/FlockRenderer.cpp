@@ -2,7 +2,7 @@
 #include "FlockRenderer.hpp"
 
 
-FlockRenderer::FlockRenderer(Unsigned initial_count, const Projection &projection) :
+FlockRenderer::FlockRenderer(Unsigned initial_count, const Transform &projection) :
         m_data_buffer_size(static_cast<GLsizeiptr>(initial_count * sizeof(Transform))),
         m_data_buffer(std::make_unique<Transform[]>(m_data_buffer_size))
 {
@@ -29,8 +29,10 @@ FlockRenderer::FlockRenderer(Unsigned initial_count, const Projection &projectio
     m_control.link(vs, fs);
     m_control.bind();
 
-    m_control.uniform("color").setF(1.0f, 0.0f, 0.0f);
     m_control.uniform("projection").matrix4F(&projection[0][0]);
+    u_view = m_control.uniform("view");
+    u_color = m_control.uniform("color");
+    u_color.setF(Boid::Color.r, Boid::Color.g, Boid::Color.b);
     m_control.bind();
 }
 
@@ -51,24 +53,48 @@ void FlockRenderer::resize(Unsigned new_size) {
 void FlockRenderer::update(const Flock &flock) {
     const Unsigned count = flock.count();
     const Boid *boids = flock.boids();
+    const Quaternion *rotations = flock.rotations();
     auto buffer_size = static_cast<GLsizeiptr>(count * sizeof(Transform));
 
+    constexpr Vector scale_vector = Vector{Boid::Scale};
+    constexpr Transform unit {1.0f};
     for (Unsigned i = 0; i < count; ++i) {
-        const Boid &boid {boids[i]};
-        Vector rotation {glm::fastNormalize(boid.velocity)};
-        m_data_buffer[i] = Transform {
-            Boid::Scale * rotation.x, Boid::Scale * rotation.y, 0.0f, 0.0f,
-            -Boid::Scale * rotation.y, Boid::Scale * rotation.x, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            boid.position.x, boid.position.y, boid.position.z, 1.0f
-        };
+        m_data_buffer[i] = (
+            glm::translate(unit, boids[i].position)
+            * glm::toMat4(rotations[i])
+            * glm::scale(unit, scale_vector)
+        );
+
+        //Boid boid {boids[i]};
+        //Vector rotation {glm::fastNormalize(boid.velocity)};
+        //m_data_buffer[i] = Transform {
+        //    Boid::Scale * rotation.x, Boid::Scale * rotation.y, 0.0f, 0.0f,
+        //    -Boid::Scale * rotation.y, Boid::Scale * rotation.x, 0.0f, 0.0f,
+        //    0.0f, 0.0f, 1.0f, 0.0f,
+        //    boid.position.x, boid.position.y, boid.position.z, 1.0f
+        //};
     }
 
     m_data.update<Transform>(m_data_buffer.get(), buffer_size, 0);
     m_layout.instances = count;
 }
 
+void FlockRenderer::set_view(const Transform &view) {
+    GLint previous_program;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &previous_program);
+    m_control.bind();
+    u_view.matrix4F(&view[0][0]);
+    glUseProgram(previous_program);
+}
+
+void FlockRenderer::set_color(const Triple &color) {
+    m_control.bind();
+    u_color.setF(color.r, color.g, color.b);
+}
+
 void FlockRenderer::draw() {
     m_control.bind();
-    m_layout.drawArrays(lwvl::PrimitiveMode::TriangleFan, 4);
+    //m_layout.drawArrays(lwvl::PrimitiveMode::TriangleFan, 4);
+    //m_layout.drawArrays(lwvl::PrimitiveMode::Triangles, 36);
+    m_layout.drawArrays(lwvl::PrimitiveMode::Triangles, 18);
 }

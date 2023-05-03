@@ -1,0 +1,8 @@
+#version 460 core
+
+out vec4 final;
+uniform vec3 color;
+
+void main() {
+    final = vec4(color, 1.0);
+}
